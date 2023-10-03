@@ -1,7 +1,7 @@
 <center>
 
 <h1>🏡 File House</h1>
-<p>Convert your files without pain™️</p>
+<p>Convert your files without pain™</p>
 
 </center>
 
