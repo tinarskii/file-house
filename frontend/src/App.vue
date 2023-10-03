@@ -1,36 +1,26 @@
-<script lang="ts" setup>
-import { MediaConvert, WriteFile, RemoveFile } from "../wailsjs/go/main/App";
+<script setup lang="ts">
+import AudioConvert from "./components/AudioConvert.vue";
+import VideoConvert from "./components/VideoConvert.vue";
+import ImageConvert from "./components/ImageConvert.vue";
+import {ref} from "vue";
 
-async function convert(e: any) {
-  e.preventDefault();
-
-  // Write file to local
-  const file = e.target.files[0] as File
-  const fileText = await (file).text();
-  await WriteFile(fileText, `\$TMP/${file.name}`);
-
-  // Convert file
-  const convertedFile = await MediaConvert({
-    source: `\$TMP\\${file.name}`,
-    target_dir: `\$TMP`,
-    target_name: `filehouse_${file.name}`,
-    target_format: "ogg",
-    target_audio_codec: "libopus",
-    target_video_codec: "copy"
-  });
-
-  // Download file
-  const blob = new Blob([convertedFile as any], { type: "audio/mp3" });
-  const link = document.createElement("a");
-  link.href = window.URL.createObjectURL(blob);
-  link.download = "output.mp3";
-  link.click();
-
-  // Remove file from local
-  // await RemoveFile(`\$TMP/${file.name}`);
-}
+let currentPage = ref("home")
 </script>
 
 <template>
-  <input type="file" @change="convert">
+  <div v-if="currentPage === 'home'">
+    <h1>FileHouse</h1>
+    <p>Convert your files without pain™️</p>
+    <button @click="currentPage = 'toAudio'">🔉 Audio Convert</button>
+    <button @click="currentPage = 'toVideo'">🎥 Video Convert</button>
+    <button @click="currentPage = 'toImage'">🖼️ Image Convert</button>
+  </div>
+    <AudioConvert v-if="currentPage === 'toAudio'" />
+    <VideoConvert v-if="currentPage === 'toVideo'" />
+    <ImageConvert v-if="currentPage === 'toImage'" />
+  <button v-if="currentPage !== 'home'" @click="currentPage = 'home'">🏠 Home</button>
 </template>
+
+<style scoped>
+
+</style>

@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	ffmpeg_go "github.com/u2takey/ffmpeg-go"
-	"os"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"log"
+	"strings"
 )
 
 // App struct
@@ -17,70 +18,144 @@ func NewApp() *App {
 	return &App{}
 }
 
-// startup is called when the app starts. The context is saved
+// startup is called when the app starts. The context is saved,
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
 type MediaConvertOptions struct {
-	Source           string `json:"source"`
-	TargetName       string `json:"target_name"`
-	TargetFormat     string `json:"target_format"`
-	TargetDir        string `json:"target_dir"`
-	TargetVideoCodec string `json:"target_video_codec"`
-	TargetAudioCodec string `json:"target_audio_codec"`
+	TargetFormat  string `json:"target_format"`
+	TargetBitrate struct {
+		Video string `json:"video"`
+		Audio string `json:"audio"`
+	} `json:"target_bitrate"`
 }
 
 // MediaConvert converts the given media file to the given format
-func (a *App) MediaConvert(options MediaConvertOptions) []byte {
+func (a *App) MediaConvert(options MediaConvertOptions) error {
+	fileSource, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select a file",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Videos",
+				Pattern:     "*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm",
+			},
+			{
+				DisplayName: "Audio",
+				Pattern:     "*.mp3;*.wav;*.aac;*.flac;*.ogg;*.wma;*.m4a;*.opus",
+			},
+		},
+	})
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
+		return err
+	}
+	if fileSource == "" {
+		runtime.EventsEmit(a.ctx, "failed", "No file selected")
+		return nil
+	}
 
-	outputPath := os.ExpandEnv(options.TargetDir) + options.TargetName + "." + options.TargetFormat
+	targetDir, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title: "Save file...",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: options.TargetFormat,
+				Pattern:     "*." + options.TargetFormat,
+			},
+		},
+		DefaultFilename: strings.Split(strings.Split(fileSource, "\\")[len(strings.Split(fileSource, "\\"))-1], ".")[0],
+	})
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
+		return err
+	}
+	if targetDir == "" {
+		runtime.EventsEmit(a.ctx, "failed", "No target directory selected")
+		return nil
+	}
 
-	err := ffmpeg_go.Input(os.ExpandEnv(options.Source)).
-		Output(outputPath, ffmpeg_go.KwArgs{
-			"vcodec":   options.TargetVideoCodec,
-			"acodec":   options.TargetAudioCodec,
-			"movflags": "faststart",
+	targetDir = targetDir + "." + options.TargetFormat
+
+	err = ffmpeg_go.Input(fileSource).
+		Output(targetDir, ffmpeg_go.KwArgs{
+			"b:v": options.TargetBitrate.Video,
+			"b:a": options.TargetBitrate.Audio,
 		}).
 		OverWriteOutput().
 		ErrorToStdOut().
 		Run()
-
 	if err != nil {
-		fmt.Println("Error converting file: " + err.Error())
-		return nil
-	}
-
-	fmt.Println("File converted to: " + outputPath)
-
-	fileContent, err := os.ReadFile(outputPath)
-	if err != nil {
-		fmt.Println("Error reading file: " + err.Error())
-		return nil
-	}
-
-	return fileContent
-}
-
-func (a *App) WriteFile(fileContent string, filePath string) error {
-	err := os.WriteFile(os.ExpandEnv(filePath), []byte(fileContent), 0644)
-	if err != nil {
-		fmt.Println("Error writing file: " + err.Error())
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
 		return err
 	}
 
-	fmt.Println("File written to: " + filePath)
+	log.Println("File converted to: " + targetDir)
+	runtime.EventsEmit(a.ctx, "success", "File converted to: "+targetDir)
+
 	return nil
 }
 
-func (a *App) RemoveFile(filePath string) error {
-	err := os.Remove(os.ExpandEnv(filePath))
+type ImageConvertOptions struct {
+	TargetFormat string `json:"target_format"`
+}
+
+func (a *App) ImageConvert(options ImageConvertOptions) error {
+	fileSource, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select a file",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Images",
+				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp",
+			},
+			{
+				DisplayName: "Videos",
+				Pattern:     "*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm",
+			},
+		},
+	})
 	if err != nil {
-		fmt.Println("Error removing file: " + err.Error())
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
+		return err
+	}
+	if fileSource == "" {
+		runtime.EventsEmit(a.ctx, "failed", "No file selected")
+		return nil
+	}
+
+	targetDir, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title: "Save file...",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: options.TargetFormat,
+				Pattern:     "*." + options.TargetFormat,
+			},
+		},
+		DefaultFilename: strings.Split(strings.Split(fileSource, "\\")[len(strings.Split(fileSource, "\\"))-1], ".")[0],
+	})
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
+		return err
+	}
+	if targetDir == "" {
+		runtime.EventsEmit(a.ctx, "failed", "No target directory selected")
+		return nil
+	}
+
+	targetDir = targetDir + "." + options.TargetFormat
+
+	err = ffmpeg_go.Input(fileSource).
+		Output(targetDir).
+		OverWriteOutput().
+		ErrorToStdOut().
+		Run()
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "failed", err.Error())
 		return err
 	}
 
-	fmt.Println("File removed: " + filePath)
+	log.Println("File converted to: " + targetDir)
+	runtime.EventsEmit(a.ctx, "success", "File converted to: "+targetDir)
+
 	return nil
 }
