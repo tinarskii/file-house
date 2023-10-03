@@ -1,10 +1,5 @@
-<center>
-
-<h1>🏡 File House</h1>
-<p>Convert your files without pain™️</p>
-
-</center>
-
+<h1 align="center">🏡 File House</h1>
+<p align="center">Convert your files without pain™️</p>
 
 ## 🤔 About
 
